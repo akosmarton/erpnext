@@ -1,0 +1,20 @@
+version: "2"
+
+services:
+  erpnext:
+    container_name: erpnext
+    environment:
+      - MODE=production
+      - MYSQL_ROOT_PASSWORD=mysql
+      - ADMIN_PASSWORD=admin
+    image: makos/erpnext:latest
+    volumes:
+      - data:/data
+      - mysql:/var/lib/mysql
+    ports:
+      - 8080:80
+      - 8000:8000
+      - 9000:9000
+volumes:
+  mysql:
+  data:
