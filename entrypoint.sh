@@ -39,6 +39,7 @@ bench set-config -g redis_socketio "redis://$REDIS_SOCKETIO_HOST:$REDIS_SOCKETIO
 bench set-config -g --as-dict gunicorn_workers $WORKERS
 bench set-config -g --as-dict restart_supervisor_on_update 0
 bench set-config -g --as-dict restart_systemd_on_update 0
+bench set-admin-password "$ADMIN_PASSWORD"
 
 bench enable-scheduler
 
