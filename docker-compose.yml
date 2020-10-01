@@ -1,20 +1,68 @@
-version: "2"
+version: "3"
 
 services:
   erpnext:
-    container_name: erpnext
-    environment:
-      - MODE=production
-      - MYSQL_ROOT_PASSWORD=mysql
-      - ADMIN_PASSWORD=admin
     image: makos/erpnext:latest
+    restart: on-failure
+    command: /entrypoint.sh
+    environment:
+      - FRAPPE_VERSION=${FRAPPE_VERSION}
+      - ERPNEXT_VERSION=${ERPNEXT_VERSION}
+      - MARIADB_ROOT_USER=${MARIADB_ROOT_USER}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}      
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SITE=${SITE}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_http.rule=Host(`${SITE}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_http.entrypoints=http
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_http.middlewares=redirect-to-https
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_https.rule=Host(`${SITE}`)
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_https.entrypoints=https
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_https.tls=true
+      - traefik.http.routers.${COMPOSE_PROJECT_NAME}_https.tls.certresolver=letsencrypt
+      - traefik.http.services.${COMPOSE_PROJECT_NAME}_https.loadbalancer.server.port=80
     volumes:
       - data:/data
-      - mysql:/var/lib/mysql
-    ports:
-      - 8080:80
-      - 8000:8000
-      - 9000:9000
+    networks: 
+      - default
+      - traefik
+
+  mariadb:
+    image: mariadb:10.3
+    restart: on-failure
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD}
+    volumes:
+      - ./frappe-mariadb.cnf:/etc/mysql/conf.d/frappe.cnf
+      - mariadb:/var/lib/mysql    
+
+  redis-cache:
+    image: redis:latest
+    restart: on-failure
+    volumes:
+      - redis-cache:/data
+    
+  redis-queue:
+    image: redis:latest
+    restart: on-failure
+    volumes:
+      - redis-queue:/data
+        
+  redis-socketio:
+    image: redis:latest
+    restart: on-failure
+    volumes:
+      - redis-socketio:/data
+            
 volumes:
-  mysql:
   data:
+  mariadb:
+  redis-cache:
+  redis-queue:
+  redis-socketio:
+
+networks: 
+  traefik:
+    external: 
+      name: traefik_default

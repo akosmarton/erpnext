@@ -1,69 +1,61 @@
 #!/bin/bash
 set -e
+
+if [ ! -d /data/bench ]; then
+    sudo chown frappe:frappe /data
+    bench init --skip-redis-config-generation --frappe-branch "$FRAPPE_VERSION" /data/bench
+fi
+cd /data/bench
+
+wait-for-it.sh "$MARIADB_HOST:$MARIADB_PORT" -t 60
+wait-for-it.sh "$REDIS_CACHE_HOST:$REDIS_CACHE_PORT" -t 60
+wait-for-it.sh "$REDIS_QUEUE_HOST:$REDIS_QUEUE_PORT" -t 60
+wait-for-it.sh "$REDIS_SOCKETIO_HOST:$REDIS_SOCKETIO_PORT" -t 60
+
+if [ ! -d /data/bench/apps/erpnext ]; then
+    ./env/bin/pip install numpy==1.18.5
+    ./env/bin/pip install pandas==0.24.2
+    bench set-config -g db_host "$MARIADB_HOST"
+    bench set-config -g --as-dict db_port $MARIADB_PORT
+    bench set-config -g mariadb_root_username "$MARIADB_ROOT_USER"
+    bench set-config -g mariadb_root_password "$MARIADB_ROOT_PASSWORD"
+    bench get-app --branch "$ERPNEXT_VERSION" erpnext
+fi
+
+if [ ! -d /data/bench/sites/$SITE ]; then
+    bench new-site --no-mariadb-socket --db-host "$MARIADB_HOST" --db-port "$MARIADB_PORT" --mariadb-root-username "$MARIADB_ROOT_USER" --mariadb-root-password "$MARIADB_ROOT_PASSWORD" --admin-password "$ADMIN_PASSWORD" --install-app erpnext "$SITE"
+    bench set-default-site $SITE
+fi
+
+bench use $SITE
+
+bench set-config -g db_host "$MARIADB_HOST"
+bench set-config -g --as-dict db_port $MARIADB_PORT
+bench set-config -g mariadb_root_username "$MARIADB_ROOT_USER"
+bench set-config -g mariadb_root_password "$MARIADB_ROOT_PASSWORD"
+bench set-config -g redis_cache "redis://$REDIS_CACHE_HOST:$REDIS_CACHE_PORT"
+bench set-config -g redis_queue "redis://$REDIS_QUEUE_HOST:$REDIS_QUEUE_PORT"
+bench set-config -g redis_socketio "redis://$REDIS_SOCKETIO_HOST:$REDIS_SOCKETIO_PORT"
+bench set-config -g --as-dict gunicorn_workers $WORKERS
+bench set-config -g --as-dict restart_supervisor_on_update 0
+bench set-config -g --as-dict restart_systemd_on_update 0
+
+bench enable-scheduler
+
+bench setup backups
+bench setup nginx --yes
+sudo rm -rf /etc/nginx/sites-enabled/*
+sudo ln -sf $PWD/config/nginx.conf /etc/nginx/conf.d/bench.conf
+bench setup supervisor --yes
+sudo ln -sf $PWD/config/supervisor.conf /etc/supervisor/conf.d/bench.conf
+
 sudo cron
-if [ ! -d /var/lib/mysql/mysql ]; then
-    sudo mysql_install_db --user mysql --skip-test-db
-fi 
-sudo mysqld_safe --skip-grant-tables &
-/wait-for-it.sh -t 30 localhost:3306
-sudo mysql -u root -e "FLUSH PRIVILEGES; ALTER USER 'root'@'localhost' IDENTIFIED BY '$MYSQL_ROOT_PASSWORD'; FLUSH PRIVILEGES;"
-sudo killall -w mysqld
-sudo mysqld_safe &
-/wait-for-it.sh -t 30 localhost:3306
-if [ ! -d $PWD/bench ]; then
-    sudo chmod a+w /$PWD
-    bench init --skip-redis-config-generation --frappe-branch $FRAPPE_BRANCH $PWD/bench
-fi
-cd $PWD/bench
-bench set-config -g root_password $MYSQL_ROOT_PASSWORD
-bench set-config -g gunicorn_workers $GUNICORN_WORKERS
-if [ ! -d $PWD/apps/erpnext ]; then
-    bench get-app --branch $ERPNEXT_BRANCH erpnext
-fi
-bench setup redis
-if [ ! -d $PWD/sites/$FRAPPE_SITE ]; then
-    redis-server $PWD/config/redis_queue.conf &>/dev/null &
-    redis-server $PWD/config/redis_socketio.conf &>/dev/null &
-    redis-server $PWD/config/redis_cache.conf &>/dev/null &
-    bench new-site --db-name $DB_NAME --admin-password $ADMIN_PASSWORD $FRAPPE_SITE
-    bench use $FRAPPE_SITE
-    bench install-app erpnext
-    bench enable-scheduler
-    killall -w redis-server
-fi
-bench use $FRAPPE_SITE
-bench set-admin-password $ADMIN_PASSWORD
-if [ ! -z "$MAIL_SERVER" ]; then
-    bench set-config mail_server $MAIL_SERVER
-fi
-if [ ! -z "$MAIL_PORT" ]; then
-    bench set-config mail_port $MAIL_PORT
-fi
-if [ ! -z "$MAIL_USE_SSL" ]; then
-    bench set-config use_ssl $MAIL_USE_SSL
-fi
-if [ ! -z "$MAIL_LOGIN" ]; then
-    bench set-config mail_login $MAIL_LOGIN
-fi
-if [ ! -z "$MAIL_PASSWORD" ]; then
-    bench set-config mail_password $MAIL_PASSWORD
-fi
-if [ ! -z "$MAIL_AUTO_EMAIL_ID" ]; then
-    bench set-config auto_email_id $MAIL_AUTO_EMAIL_ID
-fi
-if [ ! -z "$DEVELOPER_MODE" ]; then
-    bench set-config developer_mode $DEVELOPER_MODE
-fi
-bench set-url-root $FRAPPE_SITE "$HOSTNAME"
-if [ "$MODE" == "production" ]; then
-    bench setup backups
-    bench setup nginx --yes
-    sudo rm -rf /etc/nginx/sites-enabled/*
-    sudo ln -s $PWD/config/nginx.conf /etc/nginx/sites-enabled/erpnext.conf
-    sudo nginx
-    bench setup supervisor --yes
-    sudo ln -sf $PWD/config/supervisor.conf /etc/supervisor/conf.d/erpnext.conf
-    sudo supervisord -n -u root
-else
+
+if (($DEVELOPER_MODE)); then
+    bench set-config -g --as-dict developer_mode 1
     bench start
+else
+    bench set-config -g --as-dict developer_mode 0
+    sudo nginx
+    sudo supervisord -n -u root
 fi

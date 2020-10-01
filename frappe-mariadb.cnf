@@ -1,18 +1,7 @@
 [mysqld]
-bind-address = 0.0.0.0
 character-set-client-handshake = FALSE
 character-set-server = utf8mb4
 collation-server = utf8mb4_unicode_ci
-innodb_buffer_pool_size=1G
 
 [mysql]
 default-character-set = utf8mb4
-
-[mysqld_safe]
-skip_log_error
-syslog
-
-[mysqldump]
-quick
-quote-names
-max_allowed_packet	= 16M
