@@ -15,13 +15,12 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     git \
     curl \
     cron \
-    libfontconfig \
-    xvfb \
-    wkhtmltopdf \
     nginx \
     supervisor \
     && curl -sL https://deb.nodesource.com/setup_12.x | bash - \
     && apt install -y --no-install-recommends --no-install-suggests nodejs \
+    && curl -o/tmp/wkhtmltox.deb -sL https://github.com/wkhtmltopdf/packaging/releases/download/0.12.6-1/wkhtmltox_0.12.6-1.focal_amd64.deb \
+    && apt install -y --no-install-recommends --no-install-suggests /tmp/wkhtmltox.deb \
     && npm install -g yarn \
     && apt clean \
     && update-alternatives --install /usr/bin/python python /usr/bin/python3 99 \
@@ -37,7 +36,7 @@ EXPOSE 80
 VOLUME [ "/data" ]
 ENV FRAPPE_VERSION=version-12 \
     ERPNEXT_VERSION=version-12 \
-    SITE=erpnext.example.com \
+    SITE=localhost \
     MARIADB_ROOT_PASSWORD=admin \
     MARIADB_ROOT_USER=root \
     ADMIN_PASSWORD=admin \
