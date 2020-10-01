@@ -19,6 +19,8 @@ if [ ! -d /data/bench/apps/erpnext ]; then
     bench set-config -g --as-dict db_port $MARIADB_PORT
     bench set-config -g mariadb_root_username "$MARIADB_ROOT_USER"
     bench set-config -g mariadb_root_password "$MARIADB_ROOT_PASSWORD"
+    bench set-config -g --as-dict restart_supervisor_on_update 0
+    bench set-config -g --as-dict restart_systemd_on_update 0    
     bench get-app --branch "$ERPNEXT_VERSION" erpnext
 fi
 
