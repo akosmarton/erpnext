@@ -31,6 +31,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     && pip3 install frappe-bench
 COPY entrypoint.sh /
 COPY wait-for-it.sh /usr/local/bin/
+COPY supervisord.conf /etc/supervisor/
 USER frappe
 WORKDIR /data
 EXPOSE 80

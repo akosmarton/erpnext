@@ -19,8 +19,6 @@ if [ ! -d /data/bench/apps/erpnext ]; then
     bench set-config -g --as-dict db_port $MARIADB_PORT
     bench set-config -g mariadb_root_username "$MARIADB_ROOT_USER"
     bench set-config -g mariadb_root_password "$MARIADB_ROOT_PASSWORD"
-    bench set-config -g --as-dict restart_supervisor_on_update 0
-    bench set-config -g --as-dict restart_systemd_on_update 0    
     bench get-app --branch "$ERPNEXT_VERSION" erpnext
 fi
 
@@ -39,26 +37,19 @@ bench set-config -g redis_cache "redis://$REDIS_CACHE_HOST:$REDIS_CACHE_PORT"
 bench set-config -g redis_queue "redis://$REDIS_QUEUE_HOST:$REDIS_QUEUE_PORT"
 bench set-config -g redis_socketio "redis://$REDIS_SOCKETIO_HOST:$REDIS_SOCKETIO_PORT"
 bench set-config -g --as-dict gunicorn_workers $WORKERS
-bench set-config -g --as-dict restart_supervisor_on_update 0
-bench set-config -g --as-dict restart_systemd_on_update 0
 bench set-admin-password "$ADMIN_PASSWORD"
 
-bench enable-scheduler
-
-bench setup backups
-bench setup nginx --yes
-sudo rm -rf /etc/nginx/sites-enabled/*
-sudo ln -sf $PWD/config/nginx.conf /etc/nginx/conf.d/bench.conf
-bench setup supervisor --yes
-sudo ln -sf $PWD/config/supervisor.conf /etc/supervisor/conf.d/bench.conf
-
 sudo cron
+bench enable-scheduler
 
 if (($DEVELOPER_MODE)); then
     bench set-config -g --as-dict developer_mode 1
     bench start
 else
+    bench setup backups
+    bench setup nginx --yes
+    sudo rm -rf /etc/nginx/sites-enabled/*
+    sudo ln -sf $PWD/config/nginx.conf /etc/nginx/conf.d/bench.conf
     bench set-config -g --as-dict developer_mode 0
-    sudo nginx
-    sudo supervisord -n -u root
+    sudo -E supervisord -n -c /etc/supervisor/supervisord.conf
 fi
