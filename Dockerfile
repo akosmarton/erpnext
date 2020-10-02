@@ -14,6 +14,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
     g++ \
     git \
     curl \
+    ssh-client \
     cron \
     nginx \
     supervisor \
